@@ -103,6 +103,94 @@ const UserSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    // E2EE Keys
+    publicKey: {
+      type: String,
+      select: false,
+    },
+    privateKeyEncrypted: {
+      type: String,
+      select: false, // Encrypted with user's password
+    },
+    // Two-step verification backup codes
+    backupCodes: [
+      {
+        code: {
+          type: String,
+          select: false,
+        },
+        used: {
+          type: Boolean,
+          default: false,
+        },
+      },
+    ],
+    trustedDevices: [
+      {
+        deviceId: String,
+        deviceName: String,
+        trustedAt: Date,
+      },
+    ],
+    // Notification preferences
+    notificationPreferences: {
+      pushEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      emailEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      categories: {
+        mentions: { type: Boolean, default: true },
+        directMessages: { type: Boolean, default: true },
+        replies: { type: Boolean, default: true },
+        fileUploads: { type: Boolean, default: true },
+        system: { type: Boolean, default: true },
+        adminAlerts: { type: Boolean, default: true },
+        groupInvites: { type: Boolean, default: true },
+      },
+      emailDigestInterval: {
+        type: Number, // minutes
+        default: 60,
+      },
+      customSound: {
+        type: String,
+        default: '',
+      },
+    },
+    // Push notification subscription
+    pushSubscription: {
+      endpoint: String,
+      keys: {
+        p256dh: String,
+        auth: String,
+      },
+    },
+    // Chat security settings
+    chatSecurity: {
+      screenshotBlocking: {
+        type: Boolean,
+        default: false,
+      },
+      watermarkEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      disableCopy: {
+        type: Boolean,
+        default: false,
+      },
+      disableForward: {
+        type: Boolean,
+        default: false,
+      },
+      disableDownload: {
+        type: Boolean,
+        default: false,
+      },
+    },
   },
   {
     timestamps: true,

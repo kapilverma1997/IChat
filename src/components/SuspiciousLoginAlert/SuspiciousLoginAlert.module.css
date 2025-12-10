@@ -1,0 +1,71 @@
+.alert {
+  display: flex;
+  gap: 15px;
+  padding: 20px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.content {
+  flex: 1;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: #856404;
+}
+
+.message {
+  margin: 0 0 12px 0;
+  color: #856404;
+  line-height: 1.5;
+}
+
+.reasons {
+  margin-bottom: 15px;
+  font-size: 14px;
+  color: #856404;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.secureButton,
+.dismissButton {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.secureButton {
+  background: #dc3545;
+  color: white;
+}
+
+.secureButton:hover {
+  background: #c82333;
+}
+
+.dismissButton {
+  background: #6c757d;
+  color: white;
+}
+
+.dismissButton:hover {
+  background: #5a6268;
+}
+

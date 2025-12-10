@@ -1,0 +1,86 @@
+.overlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2000;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.popup {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  max-width: 350px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: #333;
+}
+
+.description {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+  margin: 0 0 20px 0;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.enableButton {
+  flex: 1;
+  padding: 10px 20px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.enableButton:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.enableButton:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.dismissButton {
+  flex: 1;
+  padding: 10px 20px;
+  background: #f0f0f0;
+  color: #666;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.dismissButton:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.dismissButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

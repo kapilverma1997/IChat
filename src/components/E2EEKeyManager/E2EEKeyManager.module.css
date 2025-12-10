@@ -1,0 +1,147 @@
+.container {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 30px;
+  color: #333;
+}
+
+.section {
+  margin-bottom: 30px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #555;
+}
+
+.keyContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.keyText {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  resize: vertical;
+  background: #f9f9f9;
+}
+
+.copyButton {
+  align-self: flex-start;
+  padding: 8px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.copyButton:hover {
+  background: #5568d3;
+}
+
+.noKey {
+  color: #999;
+  font-style: italic;
+}
+
+.status {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.statusLabel {
+  font-weight: 500;
+  color: #333;
+}
+
+.statusOk {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.statusError {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.actions {
+  margin-top: 30px;
+}
+
+.generateButton {
+  padding: 12px 24px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.generateButton:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.generateButton:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.info {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f0f4ff;
+  border-radius: 8px;
+}
+
+.info h4 {
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.info ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #666;
+}
+
+.info li {
+  margin-bottom: 8px;
+}
+
+.error {
+  padding: 12px;
+  background: #fee;
+  color: #c33;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.message {
+  padding: 12px;
+  background: #efe;
+  color: #3c3;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+

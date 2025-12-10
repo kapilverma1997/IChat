@@ -11,10 +11,14 @@ dotenv.config({ path: join(__dirname, '..', '.env.local') });
 import connectDB from '../lib/mongodb.js';
 import ScheduledMessage from '../models/ScheduledMessage.js';
 import Message from '../models/Message.js';
+import GroupMessage from '../models/GroupMessage.js';
 import Reminder from '../models/Reminder.js';
 import FileModel from '../models/File.js';
 import Chat from '../models/Chat.js';
 import Group from '../models/Group.js';
+import MessageRetention from '../models/MessageRetention.js';
+import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 import { getIO } from '../lib/socket.js';
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -278,12 +282,166 @@ export async function processReminders() {
   }
 }
 
+// Process message retention policies
+export async function processMessageRetention() {
+  try {
+    await connectDB();
+
+    const now = new Date();
+    const retentionPolicies = await MessageRetention.find({
+      isActive: true,
+      nextPurgeAt: { $lte: now },
+      retentionPeriod: { $ne: 'forever' },
+    })
+      .populate('chatId')
+      .populate('groupId');
+
+    for (const policy of retentionPolicies) {
+      try {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - (policy.retentionDays || 0));
+
+        let deletedCount = 0;
+
+        if (policy.chatId) {
+          // Delete old messages from chat
+          const result = await Message.deleteMany({
+            chatId: policy.chatId._id,
+            createdAt: { $lt: cutoffDate },
+            isDeleted: false,
+          });
+          deletedCount = result.deletedCount;
+
+          // Emit socket event
+          const io = getIO();
+          if (io && deletedCount > 0) {
+            io.to(`chat:${policy.chatId._id}`).emit('message:deletedByPolicy', {
+              chatId: policy.chatId._id.toString(),
+              count: deletedCount,
+            });
+          }
+        } else if (policy.groupId) {
+          // Delete old messages from group
+          const result = await GroupMessage.deleteMany({
+            groupId: policy.groupId._id,
+            createdAt: { $lt: cutoffDate },
+            isDeleted: false,
+          });
+          deletedCount = result.deletedCount;
+
+          // Emit socket event
+          const io = getIO();
+          if (io && deletedCount > 0) {
+            io.to(`group:${policy.groupId._id}`).emit('message:deletedByPolicy', {
+              groupId: policy.groupId._id.toString(),
+              count: deletedCount,
+            });
+          }
+        }
+
+        // Update next purge date
+        if (policy.retentionDays) {
+          policy.nextPurgeAt = new Date();
+          policy.nextPurgeAt.setDate(policy.nextPurgeAt.getDate() + policy.retentionDays);
+          policy.lastPurgedAt = new Date();
+          await policy.save();
+        }
+
+        console.log(`Purged ${deletedCount} messages for retention policy ${policy._id}`);
+      } catch (error) {
+        console.error(`Error processing retention policy ${policy._id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error processing message retention:', error);
+  }
+}
+
+// Send email digests to users
+export async function processEmailDigests() {
+  try {
+    await connectDB();
+
+    const users = await User.find({
+      'notificationPreferences.emailEnabled': true,
+      'notificationPreferences.emailDigestInterval': { $exists: true },
+    });
+
+    for (const user of users) {
+      try {
+        const interval = user.notificationPreferences.emailDigestInterval || 60;
+        const since = new Date(Date.now() - interval * 60 * 1000);
+
+        // Get unread notifications since last digest
+        const unreadNotifications = await Notification.find({
+          userId: user._id,
+          isRead: false,
+          createdAt: { $gte: since },
+          isEmailed: false,
+        })
+          .sort({ createdAt: -1 })
+          .limit(50)
+          .lean();
+
+        if (unreadNotifications.length > 0) {
+          // Import email function
+          const { sendEmail } = await import('../lib/email.js');
+
+          // Group notifications by type
+          const grouped = {};
+          unreadNotifications.forEach((notif) => {
+            if (!grouped[notif.type]) {
+              grouped[notif.type] = [];
+            }
+            grouped[notif.type].push(notif);
+          });
+
+          // Build email content
+          let emailBody = `
+            <h2>You have ${unreadNotifications.length} missed notifications</h2>
+            <ul>
+          `;
+
+          Object.keys(grouped).forEach((type) => {
+            emailBody += `<li><strong>${type}:</strong> ${grouped[type].length} notifications</li>`;
+          });
+
+          emailBody += `</ul><p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard">View in iChat</a></p>`;
+
+          await sendEmail({
+            to: user.email,
+            subject: `iChat: ${unreadNotifications.length} Missed Notifications`,
+            html: emailBody,
+            text: `You have ${unreadNotifications.length} missed notifications. Visit iChat to view them.`,
+          });
+
+          // Mark notifications as emailed
+          await Notification.updateMany(
+            {
+              _id: { $in: unreadNotifications.map((n) => n._id) },
+            },
+            { isEmailed: true }
+          );
+
+          console.log(`Sent email digest to ${user.email} with ${unreadNotifications.length} notifications`);
+        }
+      } catch (error) {
+        console.error(`Error sending email digest to ${user.email}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error processing email digests:', error);
+  }
+}
+
 // Run all cron jobs
 export async function runCronJobs() {
   await processScheduledMessages();
   await processMessageExpiration();
   await processFileExpiration();
   await processReminders();
+  await processMessageRetention();
+  await processEmailDigests();
 }
 
 // Schedule cron jobs to run every minute
