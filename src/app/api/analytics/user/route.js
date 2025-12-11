@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedUser } from '../../../lib/auth.js';
-import UserActivityStat from '../../../../models/UserActivityStat.js';
-import MessageStat from '../../../../models/MessageStat.js';
-import connectDB from '../../../../lib/mongodb.js';
+import { getAuthenticatedUser } from '../../../../../lib/auth.js';
+import UserActivityStat from '../../../../../models/UserActivityStat.js';
+import MessageStat from '../../../../../models/MessageStat.js';
+import connectDB from '../../../../../lib/mongodb.js';
 
 export async function GET(request) {
   try {

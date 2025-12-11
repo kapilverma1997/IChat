@@ -1,0 +1,23 @@
+.settingsLayout {
+  display: flex;
+  min-height: calc(100vh - 64px);
+  background: var(--bg-primary, #ffffff);
+}
+
+.settingsContent {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .settingsLayout {
+    flex-direction: column;
+  }
+
+  .settingsContent {
+    padding: 1rem;
+  }
+}
+
