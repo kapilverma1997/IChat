@@ -19,7 +19,7 @@ export function middleware(request) {
 
   // If accessing auth pages with token, redirect to dashboard
   if (isPublicRoute && accessToken && pathname.startsWith('/auth/')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/chats', request.url));
   }
 
   return NextResponse.next();

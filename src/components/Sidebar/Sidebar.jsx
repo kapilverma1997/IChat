@@ -32,7 +32,11 @@ export default function Sidebar({
   };
 
   const handleArchive = async (chat) => {
-    await updateChat(chat._id, { isArchived: true });
+    if (chat.isArchived) {
+      await updateChat(chat._id, { isArchived: false });
+    } else {
+      await updateChat(chat._id, { isArchived: true });
+    }
   };
 
   const handleMarkUnread = async (chat) => {
@@ -40,9 +44,8 @@ export default function Sidebar({
   };
 
   const handleDelete = async (chat) => {
-    if (confirm("Are you sure you want to delete this chat?")) {
-      await deleteChat(chat._id);
-    }
+    // This will be handled by parent component with ConfirmationDialog
+    onChatDeleted?.(chat);
   };
 
   const updateChat = async (chatId, updates) => {
@@ -96,16 +99,16 @@ export default function Sidebar({
 
   const handleMouseMove = (e) => {
     if (!isResizingRef.current) return;
-    
+
     const diff = startXRef.current - e.clientX;
     const newWidth = startWidthRef.current + diff;
     const minWidth = 60;
     const maxWidth = 500;
-    
+
     if (sidebarRef.current) {
       const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
       sidebarRef.current.style.width = `${clampedWidth}px`;
-      
+
       // Auto-collapse if width is very small
       if (clampedWidth <= minWidth + 20) {
         setIsCollapsed(true);
@@ -143,7 +146,7 @@ export default function Sidebar({
   }, [isResizing]);
 
   return (
-    <div 
+    <div
       ref={sidebarRef}
       className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ""}`}
     >
@@ -169,8 +172,8 @@ export default function Sidebar({
           </div>
         )}
         {isCollapsed && (
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             onClick={toggleCollapse}
             className={styles.expandButton}
             title="Expand sidebar"
@@ -186,19 +189,33 @@ export default function Sidebar({
         title="Drag to resize"
       />
       <div className={styles.list}>
-        {chats.map((chat) => (
-          <ChatListItem
-            key={chat._id}
-            chat={chat}
-            isActive={chat._id === activeChatId}
-            onClick={() => onSelectChat(chat)}
-            onPin={() => handlePin(chat)}
-            onMute={() => handleMute(chat)}
-            onArchive={() => handleArchive(chat)}
-            onMarkUnread={() => handleMarkUnread(chat)}
-            onDelete={() => handleDelete(chat)}
-          />
-        ))}
+        {chats
+          .sort((a, b) => {
+            // Pinned chats first
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            // Then sort by lastMessageAt
+            const aTime = a.lastMessageAt
+              ? new Date(a.lastMessageAt).getTime()
+              : 0;
+            const bTime = b.lastMessageAt
+              ? new Date(b.lastMessageAt).getTime()
+              : 0;
+            return bTime - aTime;
+          })
+          .map((chat) => (
+            <ChatListItem
+              key={chat._id}
+              chat={chat}
+              isActive={chat._id === activeChatId}
+              onClick={() => onSelectChat(chat)}
+              onPin={() => handlePin(chat)}
+              onMute={() => handleMute(chat)}
+              onArchive={() => handleArchive(chat)}
+              onMarkUnread={() => handleMarkUnread(chat)}
+              onDelete={() => handleDelete(chat)}
+            />
+          ))}
       </div>
       <CreateChatModal
         isOpen={showCreateModal}

@@ -13,10 +13,10 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all chats for the user
+    // Get all archived chats for the user
     const chats = await Chat.find({
       participants: user._id,
-      isArchived: false,
+      isArchived: true,
     })
       .populate('participants', 'name email profilePhoto presenceStatus lastSeen')
       .populate('lastMessage')
@@ -75,7 +75,8 @@ export async function GET(request) {
 
     return NextResponse.json({ chats: formattedChats });
   } catch (error) {
-    console.error('List chats error:', error);
+    console.error('List archived chats error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+

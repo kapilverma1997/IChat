@@ -91,7 +91,13 @@ export async function POST(request) {
       await message.populate('replyTo');
     }
     if (message.quotedMessage) {
-      await message.populate('quotedMessage');
+      await message.populate({
+        path: 'quotedMessage',
+        populate: {
+          path: 'senderId',
+          select: 'name email profilePhoto'
+        }
+      });
     }
 
     // Emit socket event
@@ -107,6 +113,17 @@ export async function POST(request) {
             email: messageObj.senderId.email,
             profilePhoto: messageObj.senderId.profilePhoto,
           };
+        }
+        // Ensure quotedMessage senderId is properly formatted
+        if (messageObj.quotedMessage && typeof messageObj.quotedMessage === 'object') {
+          if (messageObj.quotedMessage.senderId && typeof messageObj.quotedMessage.senderId === 'object') {
+            messageObj.quotedMessage.senderId = {
+              _id: messageObj.quotedMessage.senderId._id,
+              name: messageObj.quotedMessage.senderId.name,
+              email: messageObj.quotedMessage.senderId.email,
+              profilePhoto: messageObj.quotedMessage.senderId.profilePhoto,
+            };
+          }
         }
         // Emit both old and new event names for compatibility
         io.to(`chat:${chatId}`).emit('receiveMessage', {

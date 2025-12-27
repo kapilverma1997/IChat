@@ -8,12 +8,21 @@ export default function MessageList({
   messages,
   currentUserId,
   onReply,
+  onQuote,
   onReact,
   onStar,
   onPin,
   onDelete,
   onEdit,
   onForward,
+  onSetPriority,
+  onAddTag,
+  onRemoveTag,
+  onSchedule,
+  onRemind,
+  onDeleteForEveryone,
+  selectedMessages,
+  onSelectMessage,
   typingUsers = [],
 }) {
   const messagesEndRef = useRef(null);
@@ -45,12 +54,21 @@ export default function MessageList({
           }
           currentUserId={currentUserId}
           onReply={onReply}
+          onQuote={onQuote}
           onReact={onReact}
           onStar={onStar}
           onPin={onPin}
           onDelete={onDelete}
           onEdit={onEdit}
           onForward={onForward}
+          onSetPriority={onSetPriority}
+          onAddTag={onAddTag}
+          onRemoveTag={onRemoveTag}
+          onSchedule={onSchedule}
+          onRemind={onRemind}
+          onDeleteForEveryone={onDeleteForEveryone}
+          isSelected={selectedMessages?.has(message._id?.toString()) || false}
+          onSelect={onSelectMessage}
         />
       ))}
       {typingUsers.length > 0 && (

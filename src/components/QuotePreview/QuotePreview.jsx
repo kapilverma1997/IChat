@@ -7,10 +7,17 @@ export default function QuotePreview({ quotedMessage, onClose }) {
   if (!quotedMessage) return null;
 
   const formatTime = (date) => {
-    return new Date(date).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    if (!date) return "";
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) return "";
+      return dateObj.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      return "";
+    }
   };
 
   const getPreviewContent = () => {

@@ -5,6 +5,7 @@ import Sidebar from "../Sidebar/Sidebar.jsx";
 import ChatHeader from "../ChatHeader/ChatHeader.jsx";
 import MessageList from "../MessageList/MessageList.jsx";
 import MessageInput from "../MessageInput/MessageInput.jsx";
+import MultiSelectBar from "../MultiSelectBar/MultiSelectBar.jsx";
 import NotificationBell from "../NotificationBell/NotificationBell.jsx";
 import NotificationCenter from "../NotificationCenter/NotificationCenter.jsx";
 import ChatLockScreen from "../ChatLockScreen/ChatLockScreen.jsx";
@@ -18,18 +19,31 @@ export default function DashboardLayout({
   onSelectChat,
   onSendMessage,
   onReplyMessage,
+  onQuoteMessage,
   onReactMessage,
   onStarMessage,
   onPinMessage,
   onDeleteMessage,
   onEditMessage,
   onForwardMessage,
+  onSetPriority,
+  onAddTag,
+  onRemoveTag,
+  onSchedule,
+  onRemind,
+  onDeleteForEveryone,
+  selectedMessages,
+  onSelectMessage,
+  onClearSelection,
+  onBulkDelete,
   onChatCreated,
   onChatUpdated,
   onChatDeleted,
   typingUsers = [],
   replyTo,
   setReplyTo,
+  quotedMessage,
+  setQuotedMessage,
   onTyping,
   onStopTyping,
 }) {
@@ -37,16 +51,6 @@ export default function DashboardLayout({
   const [chatLockStatus, setChatLockStatus] = useState(null);
   const [isLocked, setIsLocked] = useState(false);
   const otherUser = activeChat?.otherUser;
-
-  // Check chat lock status when activeChat changes
-  useEffect(() => {
-    if (activeChat) {
-      checkChatLock();
-    } else {
-      setIsLocked(false);
-      setChatLockStatus(null);
-    }
-  }, [activeChat]);
 
   const checkChatLock = async () => {
     try {
@@ -69,6 +73,17 @@ export default function DashboardLayout({
       console.error("Error checking chat lock:", error);
     }
   };
+
+  // Check chat lock status when activeChat changes
+  useEffect(() => {
+    if (activeChat) {
+      checkChatLock();
+    } else {
+      setIsLocked(false);
+      setChatLockStatus(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChat]);
 
   const handleUnlock = (dataKey) => {
     setIsLocked(false);
@@ -105,24 +120,51 @@ export default function DashboardLayout({
               />
             ) : (
               <>
+                {selectedMessages && selectedMessages.size > 0 && (
+                  <MultiSelectBar
+                    selectedCount={selectedMessages.size}
+                    onDelete={onBulkDelete}
+                    onForward={() => {
+                      // TODO: Implement bulk forward
+                      console.log("Bulk forward not yet implemented");
+                    }}
+                    onTag={() => {
+                      // TODO: Implement bulk tag
+                      console.log("Bulk tag not yet implemented");
+                    }}
+                    onClear={onClearSelection}
+                  />
+                )}
                 <MessageList
                   messages={messages}
                   currentUserId={currentUserId}
                   onReply={onReplyMessage}
+                  onQuote={onQuoteMessage}
                   onReact={onReactMessage}
                   onStar={onStarMessage}
                   onPin={onPinMessage}
                   onDelete={onDeleteMessage}
                   onEdit={onEditMessage}
                   onForward={onForwardMessage}
+                  onSetPriority={onSetPriority}
+                  onAddTag={onAddTag}
+                  onRemoveTag={onRemoveTag}
+                  onSchedule={onSchedule}
+                  onRemind={onRemind}
+                  onDeleteForEveryone={onDeleteForEveryone}
+                  selectedMessages={selectedMessages}
+                  onSelectMessage={onSelectMessage}
                   typingUsers={typingUsers}
                 />
                 <MessageInput
                   onSend={onSendMessage}
                   replyTo={replyTo}
                   onCancelReply={() => setReplyTo(null)}
+                  quotedMessage={quotedMessage}
+                  onCancelQuote={() => setQuotedMessage(null)}
                   onTyping={onTyping}
                   onStopTyping={onStopTyping}
+                  chatId={activeChat?._id}
                 />
               </>
             )}

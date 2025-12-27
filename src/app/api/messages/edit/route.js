@@ -58,7 +58,13 @@ export async function PATCH(request) {
       await message.populate('replyTo');
     }
     if (message.quotedMessage) {
-      await message.populate('quotedMessage');
+      await message.populate({
+        path: 'quotedMessage',
+        populate: {
+          path: 'senderId',
+          select: 'name email profilePhoto'
+        }
+      });
     }
 
     // Emit socket event

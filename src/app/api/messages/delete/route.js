@@ -38,14 +38,14 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
     }
 
-    if (message.senderId.toString() !== user._id.toString()) {
-      return NextResponse.json(
-        { error: 'Unauthorized to delete this message' },
-        { status: 403 }
-      );
-    }
-
     if (deleteForEveryone) {
+      // Only sender can delete for everyone
+      if (message.senderId.toString() !== user._id.toString()) {
+        return NextResponse.json(
+          { error: 'Unauthorized to delete this message for everyone' },
+          { status: 403 }
+        );
+      }
       // Delete for everyone (WhatsApp-style)
       message.isDeleted = true;
       message.isDeletedForEveryone = true;
@@ -68,11 +68,15 @@ export async function DELETE(request) {
         console.error('Socket error:', socketError);
       }
     } else {
-      // Delete for me only
+      // Delete for me only - any participant can delete messages for themselves
       if (!message.deletedFor) {
         message.deletedFor = [];
       }
-      if (!message.deletedFor.includes(user._id)) {
+      // Check if user ID is already in deletedFor array (handle ObjectId comparison)
+      const isAlreadyDeleted = message.deletedFor.some(
+        (id) => id.toString() === user._id.toString()
+      );
+      if (!isAlreadyDeleted) {
         message.deletedFor.push(user._id);
       }
       await message.save();

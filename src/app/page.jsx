@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import Navbar from "../components/Navbar/Navbar.jsx";
 import Container from "../components/Container/Container.jsx";
@@ -12,6 +13,32 @@ import SectionHeading from "../components/SectionHeading/SectionHeading.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if user is logged in and redirect to /chats
+    const checkAuth = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return;
+
+        const response = await fetch("/api/user/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          router.push("/chats");
+        }
+      } catch (error) {
+        // User not authenticated, stay on landing page
+        console.error("Auth check error:", error);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
   const [formData, setFormData] = useState({
     name: "",
     email: "",

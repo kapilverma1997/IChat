@@ -40,6 +40,16 @@ export default function MessageActionsMenu({
     onClose?.();
   };
 
+  const handlePriorityToggle = () => {
+    setShowTagMenu(false); // Close tag menu when opening priority menu
+    setShowPriorityMenu(!showPriorityMenu);
+  };
+
+  const handleTagToggle = () => {
+    setShowPriorityMenu(false); // Close priority menu when opening tag menu
+    setShowTagMenu(!showTagMenu);
+  };
+
   return (
     <div
       className={styles.menu}
@@ -50,15 +60,27 @@ export default function MessageActionsMenu({
       }}
     >
       {!isOwn && (
-        <button
-          className={styles.menuItem}
-          onClick={() => {
-            onQuote(message);
-            onClose?.();
-          }}
-        >
-          Quote
-        </button>
+        <>
+          <button
+            className={styles.menuItem}
+            onClick={() => {
+              onQuote(message);
+              onClose?.();
+            }}
+          >
+            Quote
+          </button>
+          <div className={styles.divider}></div>
+          <button
+            className={`${styles.menuItem} ${styles.delete}`}
+            onClick={() => {
+              onDelete(message, false);
+              onClose?.();
+            }}
+          >
+            Delete for Me
+          </button>
+        </>
       )}
       <button
         className={styles.menuItem}
@@ -85,7 +107,7 @@ export default function MessageActionsMenu({
             <span>Priority</span>
             <button
               className={styles.submenuToggle}
-              onClick={() => setShowPriorityMenu(!showPriorityMenu)}
+              onClick={handlePriorityToggle}
             >
               ▼
             </button>
@@ -120,10 +142,7 @@ export default function MessageActionsMenu({
           </div>
           <div className={styles.menuItem}>
             <span>Tag</span>
-            <button
-              className={styles.submenuToggle}
-              onClick={() => setShowTagMenu(!showTagMenu)}
-            >
+            <button className={styles.submenuToggle} onClick={handleTagToggle}>
               ▼
             </button>
             {showTagMenu && (

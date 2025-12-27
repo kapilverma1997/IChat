@@ -24,6 +24,13 @@ export function useSocket() {
     newSocket.on("connect", () => {
       console.log("Socket connected");
       setConnected(true);
+      
+      // Authenticate socket connection
+      const token = localStorage.getItem("accessToken");
+      if (token) {
+        newSocket.emit("authenticate", token);
+        console.log("Socket authentication sent");
+      }
     });
 
     newSocket.on("disconnect", () => {

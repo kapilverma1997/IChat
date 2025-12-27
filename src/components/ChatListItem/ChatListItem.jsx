@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Avatar from "../Avatar/Avatar.jsx";
 import styles from "./ChatListItem.module.css";
 
@@ -15,6 +15,28 @@ export default function ChatListItem({
   onDelete,
 }) {
   const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef(null);
+  const menuButtonRef = useRef(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showMenu &&
+        menuRef.current &&
+        menuButtonRef.current &&
+        !menuRef.current.contains(event.target) &&
+        !menuButtonRef.current.contains(event.target)
+      ) {
+        setShowMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showMenu]);
 
   const otherUser = chat.otherUser;
   const lastMessage = chat.lastMessage;
@@ -55,12 +77,15 @@ export default function ChatListItem({
       />
       <div className={styles.content}>
         <div className={styles.header}>
-          <span className={styles.name}>{otherUser?.name || "Unknown"}</span>
+          <span className={styles.name}>
+            {chat.isPinned && <span className={styles.pinIcon}>📌</span>}
+            {otherUser?.name || "Unknown"}
+          </span>
           <span className={styles.time}>{formatTime(chat.lastMessageAt)}</span>
         </div>
         <div className={styles.footer}>
           <span className={styles.lastMessage}>
-            {lastMessage?.content || "No messages yet"}
+            {lastMessage?.content || ""}
           </span>
           {unreadCount > 0 && (
             <span className={styles.unreadBadge}>{unreadCount}</span>
@@ -69,6 +94,7 @@ export default function ChatListItem({
       </div>
       <div className={styles.menu}>
         <button
+          ref={menuButtonRef}
           className={styles.menuButton}
           onClick={(e) => {
             e.stopPropagation();
@@ -78,7 +104,7 @@ export default function ChatListItem({
           ⋮
         </button>
         {showMenu && (
-          <div className={styles.menuDropdown}>
+          <div ref={menuRef} className={styles.menuDropdown}>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -104,7 +130,7 @@ export default function ChatListItem({
                 setShowMenu(false);
               }}
             >
-              Archive
+              {chat.isArchived ? "Unarchive" : "Archive"}
             </button>
             <button
               onClick={(e) => {

@@ -37,6 +37,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pinIcon {
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .time {

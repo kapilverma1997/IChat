@@ -32,13 +32,25 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
     }
 
-    // Get messages
+    // Get messages - exclude messages deleted for this user
     const messages = await Message.find({
       chatId,
       isDeleted: false,
+      $or: [
+        { deletedFor: { $exists: false } },
+        { deletedFor: { $size: 0 } },
+        { deletedFor: { $nin: [user._id] } },
+      ],
     })
       .populate('senderId', 'name email profilePhoto')
       .populate('replyTo')
+      .populate({
+        path: 'quotedMessage',
+        populate: {
+          path: 'senderId',
+          select: 'name email profilePhoto'
+        }
+      })
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip((page - 1) * limit)

@@ -1,6 +1,6 @@
 /**
  * Simple markdown parser for chat messages
- * Supports: bold, italic, code, links, lists
+ * Supports: bold, italic, underline, code, links, lists
  */
 
 export function parseMarkdown(text) {
@@ -20,9 +20,11 @@ export function parseMarkdown(text) {
   // Inline code (`code`)
   html = html.replace(/`([^`]+)`/g, '<code class="markdown-inline-code">$1</code>');
 
-  // Bold (**text** or __text__)
+  // Underline (__text__) - must be parsed before bold to avoid conflict
+  html = html.replace(/__(.+?)__/g, "<u>$1</u>");
+
+  // Bold (**text**)
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
 
   // Italic (*text* or _text_)
   html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");

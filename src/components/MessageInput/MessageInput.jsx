@@ -2,39 +2,68 @@
 
 import { useState, useRef, useEffect } from "react";
 import ReplyPreview from "../ReplyPreview/ReplyPreview.jsx";
+import QuotePreview from "../QuotePreview/QuotePreview.jsx";
 import EmojiPicker from "../EmojiPicker/EmojiPicker.jsx";
 import VoiceRecorder from "../VoiceRecorder/VoiceRecorder.jsx";
 import CameraCapture from "../CameraCapture/CameraCapture.jsx";
 import FilePreview from "../FilePreview/FilePreview.jsx";
+import ContactShareModal from "../ContactShareModal/ContactShareModal.jsx";
 import styles from "./MessageInput.module.css";
 
 export default function MessageInput({
   onSend,
   replyTo,
   onCancelReply,
+  quotedMessage,
+  onCancelQuote,
   onTyping,
   onStopTyping,
+  chatId,
 }) {
   const [content, setContent] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isCodeMode, setIsCodeMode] = useState(false);
   const [isMarkdownMode, setIsMarkdownMode] = useState(false);
   const [formattingMode, setFormattingMode] = useState(null); // 'bold', 'italic', 'underline'
+  const [errorMessage, setErrorMessage] = useState(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const errorTimeoutRef = useRef(null);
+
+  // File size limits (in bytes) - matching backend limits
+  const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+  const MAX_VIDEO_SIZE = 200 * 1024 * 1024; // 200MB for videos
+  const MAX_IMAGE_SIZE = 50 * 1024 * 1024; // 50MB for images
+  const MAX_AUDIO_SIZE = 100 * 1024 * 1024; // 100MB for audio
 
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
     };
   }, []);
+
+  // Helper function to show error message
+  const showError = (message) => {
+    setErrorMessage(message);
+    // Auto-dismiss after 5 seconds
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+    }
+    errorTimeoutRef.current = setTimeout(() => {
+      setErrorMessage(null);
+    }, 5000);
+  };
 
   const handleInputChange = (e) => {
     setContent(e.target.value);
@@ -55,21 +84,62 @@ export default function MessageInput({
   };
 
   const handleSend = async (messageType = "text", additionalData = {}) => {
-    const messageContent = content.trim();
-
-    // Don't send if no content and no files
-    if (!messageContent && selectedFiles.length === 0 && !additionalData.file) {
+    const messageContent = additionalData?.content?.trim() || "";
+    console.log(messageContent);
+    // Don't send if no content and no files (allow contact and location messages)
+    if (
+      !messageContent &&
+      selectedFiles.length === 0 &&
+      !additionalData.file &&
+      !additionalData.content &&
+      messageType !== "contact" &&
+      messageType !== "location"
+    ) {
       return;
     }
 
+    // Send emoji message
+    if (messageType === "emoji" && additionalData.content) {
+      await onSend(additionalData.content, replyTo, "emoji", {
+        ...additionalData,
+        quotedMessage,
+      });
+      setContent("");
+      setIsCodeMode(false);
+      setIsMarkdownMode(false);
+    }
+    // Send contact message
+    else if (messageType === "contact") {
+      await onSend(additionalData.content || "", replyTo, "contact", {
+        ...additionalData,
+        quotedMessage,
+      });
+      setContent("");
+      setIsCodeMode(false);
+      setIsMarkdownMode(false);
+    }
+    // Send location message
+    else if (messageType === "location") {
+      await onSend(additionalData.content || "", replyTo, "location", {
+        ...additionalData,
+        quotedMessage,
+      });
+      setContent("");
+      setIsCodeMode(false);
+      setIsMarkdownMode(false);
+    }
     // Send text message
-    if (messageContent && messageType === "text") {
+    else if (messageContent && messageType === "text") {
       const finalType = isCodeMode
         ? "code"
         : isMarkdownMode
         ? "markdown"
         : "text";
-      await onSend(messageContent, replyTo, finalType, additionalData);
+      // Pass both replyTo and quotedMessage - onSend will handle which one to use
+      await onSend(messageContent, replyTo, finalType, {
+        ...additionalData,
+        quotedMessage,
+      });
       setContent("");
       setIsCodeMode(false);
       setIsMarkdownMode(false);
@@ -95,6 +165,9 @@ export default function MessageInput({
     if (replyTo) {
       onCancelReply?.();
     }
+    if (quotedMessage) {
+      onCancelQuote?.();
+    }
     setIsTyping(false);
     onStopTyping?.();
     if (typingTimeoutRef.current) {
@@ -103,10 +176,41 @@ export default function MessageInput({
   };
 
   const handleFileSend = async (file, type = null, metadata = {}) => {
+    if (!chatId) {
+      console.error("Chat ID is required for file upload");
+      showError("Chat ID is required for file upload");
+      return;
+    }
+
+    // Validate file size before sending
+    if (file.size > MAX_FILE_SIZE) {
+      showError("File size exceeds maximum limit of 500MB");
+      return;
+    }
+
+    // Check specific file type limits
+    if (file.type.startsWith("image/") && file.size > MAX_IMAGE_SIZE) {
+      showError("Image size exceeds maximum limit of 50MB");
+      return;
+    } else if (file.type.startsWith("video/") && file.size > MAX_VIDEO_SIZE) {
+      showError(
+        "Video size exceeds maximum limit of 200MB. Please compress your video or use a smaller file."
+      );
+      return;
+    } else if (file.type.startsWith("audio/") && file.size > MAX_AUDIO_SIZE) {
+      showError("Audio size exceeds maximum limit of 100MB");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("chatId", chatId);
     if (type) formData.append("type", type);
     if (replyTo?._id) formData.append("replyTo", replyTo._id);
+    if (quotedMessage?._id) formData.append("quotedMessage", quotedMessage._id);
+    if (metadata && Object.keys(metadata).length > 0) {
+      formData.append("metadata", JSON.stringify(metadata));
+    }
 
     try {
       const token = localStorage.getItem("accessToken");
@@ -122,15 +226,54 @@ export default function MessageInput({
         const data = await response.json();
         // File upload API will handle sending the message
         return data;
+      } else {
+        // Handle error response from API
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Failed to upload file" }));
+        const errorMsg =
+          errorData.error || `Failed to upload file (${response.status})`;
+        showError(errorMsg);
+        console.error("Error uploading file:", errorMsg);
       }
     } catch (error) {
       console.error("Error uploading file:", error);
+      showError("Failed to upload file. Please try again.");
     }
   };
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
-    setSelectedFiles((prev) => [...prev, ...files]);
+
+    // Validate file sizes before adding
+    const validFiles = [];
+    for (const file of files) {
+      // Check general file size limit
+      if (file.size > MAX_FILE_SIZE) {
+        showError(`File "${file.name}" exceeds maximum limit of 500MB`);
+        continue;
+      }
+
+      // Check specific file type limits
+      if (file.type.startsWith("image/") && file.size > MAX_IMAGE_SIZE) {
+        showError(`Image "${file.name}" exceeds maximum limit of 50MB`);
+        continue;
+      } else if (file.type.startsWith("video/") && file.size > MAX_VIDEO_SIZE) {
+        showError(
+          `Video "${file.name}" exceeds maximum limit of 200MB. Please compress your video or use a smaller file.`
+        );
+        continue;
+      } else if (file.type.startsWith("audio/") && file.size > MAX_AUDIO_SIZE) {
+        showError(`Audio "${file.name}" exceeds maximum limit of 100MB`);
+        continue;
+      }
+
+      validFiles.push(file);
+    }
+
+    if (validFiles.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
+    }
     e.target.value = ""; // Reset input
   };
 
@@ -161,26 +304,26 @@ export default function MessageInput({
         },
         (error) => {
           console.error("Error getting location:", error);
-          alert("Could not access location. Please check permissions.");
+          showError("Could not access location. Please check permissions.");
         }
       );
     } else {
-      alert("Geolocation is not supported by your browser.");
+      showError("Geolocation is not supported by your browser.");
     }
   };
 
   const handleContactShare = () => {
-    // In a real app, you'd use the Contacts API or a contact picker
-    // For now, we'll use a prompt
-    const name = prompt("Enter contact name:");
-    if (!name) return;
+    setShowContactModal(true);
+  };
 
-    const phone = prompt("Enter phone number (optional):");
-    const email = prompt("Enter email (optional):");
-
+  const handleContactShareSubmit = (contactData) => {
     handleSend("contact", {
-      metadata: { name, phone: phone || null, email: email || null },
-      content: name,
+      metadata: {
+        name: contactData.name,
+        phone: contactData.phone,
+        email: contactData.email,
+      },
+      content: contactData.name,
     });
   };
 
@@ -205,43 +348,92 @@ export default function MessageInput({
   };
 
   const applyFormatting = (format) => {
+    console.log(inputRef.current);
     const textarea = inputRef.current;
     if (!textarea) return;
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
+    console.log(start, end);
     const selectedText = content.substring(start, end);
+    console.log(selectedText);
     let formattedText = "";
+    let cursorOffset = 0;
 
     switch (format) {
       case "bold":
-        formattedText = `**${selectedText || "text"}**`;
+        if (selectedText) {
+          formattedText = `**${selectedText}**`;
+          cursorOffset = formattedText.length; // Place cursor after closing **
+        } else {
+          formattedText = `****`;
+          cursorOffset = 2; // Place cursor between the ** markers
+        }
         break;
       case "italic":
-        formattedText = `*${selectedText || "text"}*`;
+        if (selectedText) {
+          formattedText = `*${selectedText}*`;
+          cursorOffset = formattedText.length; // Place cursor after closing *
+        } else {
+          formattedText = `**`;
+          cursorOffset = 1; // Place cursor between the * markers
+        }
         break;
       case "underline":
-        formattedText = `__${selectedText || "text"}__`;
+        if (selectedText) {
+          formattedText = `__${selectedText}__`;
+          cursorOffset = formattedText.length; // Place cursor after closing __
+        } else {
+          formattedText = `____`;
+          cursorOffset = 2; // Place cursor between the __ markers
+        }
         break;
       default:
         formattedText = selectedText;
+        cursorOffset = formattedText.length;
     }
 
     const newContent =
       content.substring(0, start) + formattedText + content.substring(end);
     setContent(newContent);
 
-    // Set cursor position after formatted text
+    // Set cursor position after React updates the DOM
     setTimeout(() => {
       textarea.focus();
-      const newPosition = start + formattedText.length;
+      const newPosition = start + cursorOffset;
       textarea.setSelectionRange(newPosition, newPosition);
     }, 0);
+
+    // Reset formatting mode after applying
+    setFormattingMode(null);
   };
 
   return (
     <div className={styles.container}>
       {replyTo && <ReplyPreview message={replyTo} onClose={onCancelReply} />}
+      {quotedMessage && (
+        <QuotePreview quotedMessage={quotedMessage} onClose={onCancelQuote} />
+      )}
+
+      {/* Error message */}
+      {errorMessage && (
+        <div className={styles.errorMessage}>
+          <span className={styles.errorIcon}>✗</span>
+          <span className={styles.errorText}>{errorMessage}</span>
+          <button
+            className={styles.errorClose}
+            onClick={() => {
+              setErrorMessage(null);
+              if (errorTimeoutRef.current) {
+                clearTimeout(errorTimeoutRef.current);
+              }
+            }}
+            aria-label="Close error"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* File previews */}
       {selectedFiles.length > 0 && (
@@ -281,6 +473,13 @@ export default function MessageInput({
         />
       )}
 
+      {/* Contact share modal */}
+      <ContactShareModal
+        isOpen={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        onShare={handleContactShareSubmit}
+      />
+
       <div className={styles.inputContainer}>
         <div className={styles.toolbar}>
           <button
@@ -288,7 +487,18 @@ export default function MessageInput({
             onClick={() => fileInputRef.current?.click()}
             title="Attach file"
           >
-            📎
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+            </svg>
           </button>
           <button
             className={styles.toolbarButton}

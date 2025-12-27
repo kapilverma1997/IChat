@@ -4,9 +4,12 @@ import { getAuthenticatedUser } from '../../../../../lib/auth.js';
 import Chat from '../../../../../models/Chat.js';
 import Message from '../../../../../models/Message.js';
 import { getIO } from '../../../../../lib/socket.js';
-import { writeFile, mkdir } from 'fs/promises';
+import { mkdir } from 'fs/promises';
+import { createWriteStream } from 'fs';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 
 export async function POST(request) {
   try {
@@ -23,8 +26,10 @@ export async function POST(request) {
     const type = formData.get('type') || 'file';
     const content = formData.get('content') || '';
     const replyTo = formData.get('replyTo');
+    const quotedMessage = formData.get('quotedMessage');
     const metadataStr = formData.get('metadata');
-
+    console.log("file", file);
+    console.log("chatId", chatId);
     if (!file || !chatId) {
       return NextResponse.json(
         { error: 'File and chat ID are required' },
@@ -52,21 +57,53 @@ export async function POST(request) {
       }
     }
 
-    // Determine file type
+    // File size limits (in bytes)
+    const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+    const MAX_VIDEO_SIZE = 200 * 1024 * 1024; // 200MB for videos
+    const MAX_IMAGE_SIZE = 50 * 1024 * 1024; // 50MB for images
+    const MAX_AUDIO_SIZE = 100 * 1024 * 1024; // 100MB for audio
+
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: 'File size exceeds maximum limit of 500MB' },
+        { status: 400 }
+      );
+    }
+
+    // Determine file type and check specific limits
     let messageType = type;
     if (!messageType || messageType === 'file') {
       if (file.type.startsWith('image/')) {
         messageType = 'image';
+        if (file.size > MAX_IMAGE_SIZE) {
+          return NextResponse.json(
+            { error: 'Image size exceeds maximum limit of 50MB' },
+            { status: 400 }
+          );
+        }
       } else if (file.type.startsWith('video/')) {
         messageType = 'video';
+        if (file.size > MAX_VIDEO_SIZE) {
+          return NextResponse.json(
+            { error: 'Video size exceeds maximum limit of 200MB. Please compress your video or use a smaller file.' },
+            { status: 400 }
+          );
+        }
       } else if (file.type.startsWith('audio/')) {
         messageType = 'audio';
+        if (file.size > MAX_AUDIO_SIZE) {
+          return NextResponse.json(
+            { error: 'Audio size exceeds maximum limit of 100MB' },
+            { status: 400 }
+          );
+        }
       } else {
         messageType = 'file';
       }
     }
 
-    // Save file to public/uploads directory
+    // Save file to public/uploads directory using streaming
     const uploadsDir = join(process.cwd(), 'public', 'uploads');
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
@@ -75,9 +112,20 @@ export async function POST(request) {
     const timestamp = Date.now();
     const fileName = `${timestamp}-${file.name}`;
     const filePath = join(uploadsDir, fileName);
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
+
+    // Use streaming instead of loading entire file into memory
+    try {
+      const fileStream = file.stream();
+      const nodeReadable = Readable.fromWeb(fileStream);
+      const writeStream = createWriteStream(filePath);
+      await pipeline(nodeReadable, writeStream);
+    } catch (streamError) {
+      console.error('Error streaming file:', streamError);
+      return NextResponse.json(
+        { error: 'Error uploading file. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     // Create file URL
     const fileUrl = `/uploads/${fileName}`;
@@ -92,6 +140,7 @@ export async function POST(request) {
       fileName: file.name,
       fileSize: file.size,
       replyTo: replyTo || null,
+      quotedMessage: quotedMessage || null,
       metadata,
       deliveredAt: new Date(),
     });
@@ -116,6 +165,15 @@ export async function POST(request) {
     if (message.replyTo) {
       await message.populate('replyTo');
     }
+    if (message.quotedMessage) {
+      await message.populate({
+        path: 'quotedMessage',
+        populate: {
+          path: 'senderId',
+          select: 'name email profilePhoto'
+        }
+      });
+    }
 
     // Emit socket event
     try {
@@ -130,13 +188,23 @@ export async function POST(request) {
             profilePhoto: messageObj.senderId.profilePhoto,
           };
         }
+        // Ensure quotedMessage senderId is properly formatted
+        if (messageObj.quotedMessage && typeof messageObj.quotedMessage === 'object') {
+          if (messageObj.quotedMessage.senderId && typeof messageObj.quotedMessage.senderId === 'object') {
+            messageObj.quotedMessage.senderId = {
+              _id: messageObj.quotedMessage.senderId._id,
+              name: messageObj.quotedMessage.senderId.name,
+              email: messageObj.quotedMessage.senderId.email,
+              profilePhoto: messageObj.quotedMessage.senderId.profilePhoto,
+            };
+          }
+        }
         io.to(`chat:${chatId}`).emit('receiveMessage', {
           message: messageObj,
           chatId: chatId.toString(),
         });
         io.to(`chat:${chatId}`).emit('message:mediaUploaded', {
           message: messageObj,
-          file: fileRecord.toObject(),
           chatId: chatId.toString(),
         });
       }
@@ -153,3 +221,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// Configure route for large file uploads
+export const runtime = 'nodejs';
+export const maxDuration = 300; // 5 minutes for large file uploads
